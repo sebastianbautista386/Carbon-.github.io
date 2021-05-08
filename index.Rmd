@@ -1,0 +1,158 @@
+---
+title: "Carbon project"
+author: "Edgar Cifuentes & Sebastian Bautista"
+date: "28/04/2021"
+output: 
+      html_document:
+          toc: true
+          toc_float: true
+---
+
+## Introduction
+<style>
+body {
+text-align: justify}
+</style>
+
+Welcome! This website purpose is to show you field plot data across different areas of Brazilian Amazon, and how are we using it to generate above ground carbon density (ACD) estimations using LiDAR flight paths in the same region of the plots.
+
+The rationale behind these models relies in a power-law relationship between top of canopy height (TCH) and ACD: 
+
+$$
+ACD = a · TCHb; 
+$$
+whose model parameters a and b vary with forest types. Basal Area (BA) and wood density (ρ) will be coupled as sub-models to develop a generalised model that can be applicable across different forest types: 
+$$
+ACD = a · TCHd · BAc · ρb; 
+$$
+where BA and ρ sub-models are parametrised with TCH beforehand (Asner & Mascaro, 2014). ACD will be calculated using field plot data by summing above-ground biomass (AGB) for each tree (Chave et al., 2014) and then multiplying by 0.47, which is the conversion factor for carbon content (Martin & Thomas, 2011). 
+
+LiDAR data will be used to calculate TCH, while BA and ρ are derived from field plot data. This modelling approach will provide a better understanding on how BA and ρ affect ACD.
+
+
+
+
+```{r, include=FALSE, cache=TRUE}
+# Load data
+# mini
+INV <- read.csv('D:/Lidar/Rmarkdown/all_inventories_v2_wd.csv', stringsAsFactors = F)
+
+```
+
+```{r, include=FALSE, cache=TRUE}
+## transectos que se van a quitar...
+table(INV$sizeplot, useNA = 'ifany')
+# parcelas
+(ntranp <- table(unique(INV[INV$sizeplot%in%c('?x500','20x500'),c('parcela','sizeplot')])$sizeplot))
+sum(ntranp)
+# individuos
+(ntrani <- table(INV[INV$sizeplot%in%c('?x500','20x500'),c('parcela','sizeplot')]$sizeplot))
+sum(ntrani)
+
+INV<-INV[!INV$sizeplot=='?x500',]
+INV<-INV[!INV$sizeplot=='20x500',]
+
+## Se crea db.parcela y se seleccionan las que se van a usar en el analisis
+db.parcela <- unique(INV[c("state","Name","location","plotID","sizeplot","parcela","year","owner")])
+npini <- nrow(db.parcela)
+
+db.parcela <- db.parcela[!(db.parcela$location=='ANA_A01' & db.parcela$year==2018),]
+631-32
+db.parcela <- db.parcela[!(db.parcela$location=='CAU_A01' & db.parcela$year==2014),]
+631-32-88
+db.parcela <- db.parcela[!(db.parcela$location=='CAU_A01' & db.parcela$plotID%in%c('T01_P3','T01_P4','T05_P1')),]
+631-32-88-3
+db.parcela <- db.parcela[!(db.parcela$location=='JAM_A02' & grepl('T03|T01_P1',db.parcela$plotID)),]
+631-32-88-3-5
+db.parcela <- db.parcela[!(db.parcela$location=='PAR_A01' & db.parcela$plotID=='P13'),]
+631-32-88-3-5-1
+db.parcela <- db.parcela[!(db.parcela$location=='SAN_A01' & db.parcela$year==2016),]
+631-32-88-3-5-1-8
+db.parcela <- db.parcela[!(db.parcela$location=='SAN_A02' & db.parcela$plotID=='G01_P04'),]
+631-32-88-3-5-1-8-1
+db.parcela <- db.parcela[!db.parcela$location=='TAC_A01',]
+631-32-88-3-5-1-8-1-27
+db.parcela <- db.parcela[!(db.parcela$location=='TAP_A01' & db.parcela$year%in%c(2015,2016)),]
+631-32-88-3-5-1-8-1-27-11
+db.parcela <- db.parcela[!(db.parcela$location=='TAP_A03' & db.parcela$plotID=='P59'),]
+631-32-88-3-5-1-8-1-27-11-1
+trg1<-npini-nrow(db.parcela) # Se quitaron 177 parcelas
+trg2<-nrow(INV[!INV$parcela%in%db.parcela$parcela,])
+
+
+INV <- INV[INV$parcela%in%db.parcela$parcela,]
+
+
+# Number of Dead
+var <- "parcela"
+lnomda <- lapply(var, 
+                 function(s) {
+                   z <- table(INV$dead, INV[,s])
+                   data.frame(cbind(t(z), variablecomun=row.names(t(z))))
+                 })
+names(lnomda) <- var
+
+# conteo deads
+for (i in 1:length(lnomda)) { 
+  colnames(lnomda[[i]])[1:2]<-paste0(colnames(lnomda[[i]])[1:2],names(lnomda)[i])
+  colnames(lnomda[[i]])<-gsub("TRUE","Dead",colnames(lnomda[[i]]))
+  colnames(lnomda[[i]])<-gsub("FALSE","Alive",colnames(lnomda[[i]]))
+  db.parcela<-merge(db.parcela,lnomda[[i]],by.x=names(lnomda)[i], by.y ="variablecomun")
+}
+
+# hay parcelas sin individuos vivos....
+which(db.parcela$Alive.parcela==0)
+db.parcela <- db.parcela[!db.parcela$Alive.parcela==0,]
+
+table(INV$dead, useNA = 'ifany')
+trg3<-nrow(INV[INV$dead,])
+trg4<-5
+INV <- INV[!INV$dead,] 
+
+# Se quitan lianas
+
+trg5<-table(INV$tree.type, useNA = 'ifany')[1]
+INV <- INV[INV$tree.type!='L',]
+
+##Number of DBH=NA
+trg6<-table(is.na(INV$DBH))[2]
+INV <- INV[!is.na(INV$DBH),]
+
+
+INV$height[INV$height<=0] <- NA
+
+INV$DBH[INV$owner=="MarVin"] <- INV$DBH[INV$owner=="MarVin"]/10
+trg7<-table(INV$DBH>=10)[2]
+trg8<-table(INV$DBH>=10)[1]
+INV <- INV[INV$DBH>=10,]
+
+
+```
+
+## Data cleaning
+<style>
+body {
+text-align: justify}
+</style>
+
+Due to the great amount of data and it's various origins we have to filter the data that would be use in the models.
+
+First we remove ```r sum(ntrani)``` individuals in ```r sum(ntranp)``` transects, this data was not used because it belong to linear transects of 500 m x 20 m and 500 x ? m. We consider this kind of sampling design is not useful for this project because ...
+
+Remaining data belongs to plots of 100 m x 100 m, 50 m x 50 m and 40 m x 40 m. Then we selected only one year data of plots and removed those that doesn't have a matching LiDAR flight. Reducing the number of analyzed plots by ```r trg1``` and the number of trees by ```r trg2```.
+
+After this, we removed ```r trg3``` dead individuals, ```r trg4``` plots were lost because all of the sampled individuals were dead in those plots.
+
+As we want to estimate ACD for trees and palms, ```r trg5``` lianas were removed.
+
+Then we removed ```r trg6``` individuals that didn't have a DBH measure.
+
+Finally, we removed all individuals with a DBH < 10 (n = ```r trg8```). Leaving a total of ```r trg7``` individuals in ```r nrow(db.parcela)``` plots for the analysis.
+
+
+## Map with field plots used
+
+Here we show the field plots that were used for estimating the ACD.
+
+
+

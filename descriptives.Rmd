@@ -1,0 +1,598 @@
+---
+title: "Descriptive analysis of field data"
+author: "Edgar Cifuentes & Sebastian Bautista"
+date: "28/04/2021"
+output: 
+      html_document:
+          toc: true
+          toc_float: true
+---
+<style>
+body {
+text-align: justify}
+</style>
+
+In this section you can find some descriptive analysis of the field plots data. This information is related to the plots characteristics (e.g DBH, wood density, basal area, height, number of individuals, number of taxa and ACD). This information could be seen in more detail for each plot in the window "Inventories data".
+
+## Number of individuals {.tabset}
+
+Number of trees and palms by plot.
+
+```{r,include=FALSE}
+INV <- read.csv('D:/Lidar/Rmarkdown/all_inventories_v4_agb.csv')
+db.parcela <- read.csv('D:/Lidar/Rmarkdown/db_parcela_v1_agb.csv')
+var <- "parcela"
+##Number of trees and palms
+table(INV$tree.type,INV[,var])
+lnomtp<-data.frame(cbind(t(table(INV$tree.type,INV[,var])),variablecomun=row.names(t(table(INV$tree.type,INV[,var])))))
+names(lnomtp)<-c("No.trees","No.palms","parcela")
+db.parcela <- merge(db.parcela,lnomtp, by= 'parcela')
+db.parcela$No.trees<-as.numeric(db.parcela$No.trees)
+db.parcela$No.palms<-as.numeric(db.parcela$No.palms)
+
+```
+
+### Trees
+
+```{r,echo=FALSE}
+hist(db.parcela$No.trees,breaks = 30,xlab="Number of trees by plot",main="")
+```
+
+### Palms
+
+```{r,echo=FALSE}
+hist(db.parcela$No.palms,breaks = 30,xlab="Number of palms by plot",main="")
+```
+
+
+## Diamater at breast height (DBH) {.tabset}
+
+Minimum, maximum, mean and standard deviation of DBH by plots.
+
+### Min
+
+```{r,echo=FALSE}
+hist(db.parcela$min.DBH,breaks=30,xlab="Min plot DBH (cm)",col="grey",main="")
+
+```
+
+### Max
+
+```{r,echo=FALSE}
+hist(db.parcela$max.DBH,breaks=30,xlab="Max plot DBH (cm)",col="grey",main="")
+
+```
+
+
+### Mean
+
+```{r,echo=FALSE}
+hist(db.parcela$mean.DBH,breaks=30,col="grey",xlab="Mean plot DBH (cm)",main="")
+```
+
+### SD
+
+```{r,echo=FALSE}
+hist(db.parcela$sd.DBH,breaks=30,col="grey",xlab="SD plot DBH (cm)",main="")
+```
+
+## Height {.tabset}
+
+Minimum, maximum, mean and standard deviation of height by plots.
+
+
+```{r,include=FALSE}
+##Height min, max, mean
+l.mh <- tapply(INV$height_wplog2,INV[,var],
+               function(x) data.frame(min.height=min(x), max.height=max(x),mean.height=mean(x),sd.height=sd(x)))
+l.dch <- do.call(rbind,l.mh)
+l.dch$parcela<-row.names(l.dch)
+db.parcela <- merge(db.parcela,l.dch, by= 'parcela')
+```
+
+### Min
+
+```{r,echo=FALSE}
+hist(db.parcela$min.height,breaks=30,xlab="Min plot height (m)",col="grey",main="")
+
+```
+
+### Max
+
+```{r,echo=FALSE}
+hist(db.parcela$max.height,breaks=30,xlab="Max plot height (m)",col="grey",main="")
+
+```
+
+
+### Mean
+
+```{r,echo=FALSE}
+hist(db.parcela$mean.height,breaks=30,xlab="Mean plot height (m)",col="grey",main="")
+
+```
+
+### SD
+
+```{r,echo=FALSE}
+hist(db.parcela$sd.height,breaks=30,xlab="SD plot height (m)",col="grey",main="")
+
+```
+
+## Wood density (WD) {.tabset}
+
+Minimum, maximum, mean and standard deviation of WD by plots.
+
+
+```{r,include=FALSE}
+l.wd <-  tapply(INV$meanWD,INV[,var],
+                                  function(x) data.frame(min.WD=min(x), max.WD=max(x),mean.WD=mean(x),sd.WD=sd(x)))
+l.wdcb <- do.call(rbind,l.wd)
+l.wdcb$parcela<-row.names(l.wdcb)
+db.parcela <- merge(db.parcela,l.wdcb, by= 'parcela')
+```
+
+
+### Min
+
+```{r,echo=FALSE}
+hist(db.parcela$min.WD,breaks=30,xlab=expression('Min wood density (g' %.% 'cm'^3*')'),col="grey",main="")
+```
+
+### Max
+
+```{r,echo=FALSE}
+hist(db.parcela$max.WD,breaks=30,xlab=expression('Max wood density (g' %.% 'cm'^3*')'),col="grey",main="")
+```
+
+### Mean
+
+```{r,echo=FALSE}
+hist(db.parcela$mean.WD,breaks=30,xlab=expression('Mean wood density (g' %.% 'cm'^3*')'),col="grey",main="")
+```
+
+### SD
+
+```{r,echo=FALSE}
+hist(db.parcela$sd.WD,breaks=30,xlab=expression('SD wood density (g' %.% 'cm'^3*')'),col="grey",main="")
+```
+
+## Number of taxa by plot {.tabset}
+
+Number of families, genus and species by plot.
+
+```{r, include=FALSE}
+## Number of families
+l.fmm<-as.data.frame(t(data.frame(tapply(INV$Accepted_family,INV[,var],
+                                  function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1]))))))))
+l.fmm$parcela<-gsub("[.]"," ",row.names(l.fmm))
+names(l.fmm)<-c("No.families","parcela")
+db.parcela <- merge(db.parcela,l.fmm, by= 'parcela')
+## Number of genus
+l.gmm<-as.data.frame(t(data.frame(tapply(INV$genus.tnrs,INV[,var],
+                                         function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1]))))))))
+l.gmm$parcela<-gsub("[.]"," ",row.names(l.gmm))
+names(l.gmm)<-c("No.genus","parcela")
+db.parcela <- merge(db.parcela,l.gmm, by= 'parcela')
+
+## Number of species
+l.smm<-as.data.frame(t(data.frame(tapply(INV$species.name,INV[,var],
+                                         function(x)data.frame(nrow(data.frame(table(unique(cbind(x))[,1]))))))))
+l.smm$parcela<-gsub("[.]"," ",row.names(l.smm))
+names(l.smm)<-c("No.species","parcela")
+db.parcela <- merge(db.parcela,l.smm, by= 'parcela')
+
+```
+
+
+### Families
+
+```{r,echo=FALSE}
+hist(db.parcela$No.families,breaks=30,xlab="Number of families by plot",col="grey",main="")
+```
+
+### Genus
+
+```{r,echo=FALSE}
+hist(db.parcela$No.genus,breaks=30,xlab="Number of genus by plot",col="grey",main="")
+```
+
+### Species
+
+```{r,echo=FALSE}
+hist(db.parcela$No.species,breaks=30,xlab="Number of species by plot",col="grey",main="")
+```
+
+## Basal area (BA)
+
+Basal area by plot state as the sum of all individuals basal area in that plot.
+
+```{r,echo=FALSE}
+INV$Basal.Area<-((INV$DBH/2)^2)*pi
+
+BA10<-tapply(INV[INV$DBH<35,"Basal.Area"],INV[INV$DBH<35,"parcela"],sum)
+BA10<-data.frame(BA10,parcela=row.names(BA10))
+db.parcela<-merge(db.parcela,BA10,by="parcela",all.x = T)
+db.parcela$BA10.plot<-db.parcela$BA10/db.parcela$areaplot10
+
+BA35<-tapply(INV[INV$DBH>=35,"Basal.Area"],INV[INV$DBH>=35,"parcela"],sum)
+BA35<-data.frame(BA35,parcela=row.names(BA35))
+db.parcela<-merge(db.parcela,BA35,by="parcela",all.x = T)
+db.parcela$BA35.plot<-db.parcela$BA35/db.parcela$areaplot35
+
+db.parcela$Basal.area.plot<-(db.parcela$BA10.plot+db.parcela$BA35.plot)/10000
+xlb<-expression(Basal~area~plot~(m^2%.%ha^{-1}))
+hist(db.parcela$Basal.area.plot,breaks=30,xlab=xlb,col="grey",main="")
+```
+
+## Above ground carbon density (ACD) by location {.tabset}
+
+ACD by location measured for the total of individuals (DBH = 10 : ∞) and filtering individuals with DBH >= 35; DBH = 10:35.
+
+### Total
+
+```{r,echo=FALSE}
+boxplot(db.parcela$ACD~db.parcela$location,ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'),xlab=NULL,xaxt="n",col="grey")
+text(seq_along(unique(db.parcela$location)), par("usr")[3], 
+     labels = unique(db.parcela$location), srt = 90, adj = c(1.1, 1.1), xpd = TRUE)
+
+
+
+```
+
+
+### DBH 10:35 and DBH > 35
+
+```{r,echo=FALSE}
+bxp<-data.frame(db.parcela$location,db.parcela$ACD10,db.parcela$ACD35)
+da<-c(rep("ACD10",449),rep("ACD35",449))
+bxp2<-data.frame(value=c(bxp[,"db.parcela.ACD10"],bxp[,"db.parcela.ACD35"]),location=c(bxp[,"db.parcela.location"],bxp[,"db.parcela.location"]),dbh=da)
+
+boxplot(bxp2$value~bxp2$dbh*bxp2$location,col=c("royalblue","forestgreen"),xlab=NULL,xaxt="n",ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+axis(1,at=seq(1.5,48,2),labels = unique(bxp2$location),las=2)
+legend("topright",c("DBH 10:35","DBH > 35"),col=c("royalblue","forestgreen"),pch=c(15),cex=0.8)
+```
+
+## Above ground carbon density (ACD) by sizeplot {.tabset}
+
+ACD by sizeplot measured for the total of individuals (DBH = 10 : ∞) and filtering individuals with DBH >= 35; DBH = 10:35.
+
+```{r,include=FALSE}
+bxp5<-data.frame(db.parcela$sizeplot,db.parcela$ACD10,db.parcela$ACD35)
+da<-c(rep("AGB10",449),rep("AGB35",449))
+bxp6<-data.frame(value=c(bxp5[,"db.parcela.ACD10"],bxp5[,"db.parcela.ACD35"]),sizeplot=c(bxp5[,"db.parcela.sizeplot"],bxp5[,"db.parcela.sizeplot"]),dbh=da)
+
+```
+
+
+### Total
+
+```{r,echo=FALSE}
+boxplot(db.parcela$ACD~db.parcela$sizeplot,ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'),xlab=NULL,xaxt="n",col=topo.colors(3))
+text(seq_along(unique(db.parcela$sizeplot)), par("usr")[3], 
+     labels = unique(db.parcela$sizeplot), srt = 90, adj = c(1.1, 1.1), xpd = TRUE)
+```
+
+### DBH 10:35 and DBH > 35
+
+```{r,echo=FALSE}
+boxplot(bxp6$value~bxp6$dbh*bxp6$sizeplot,col=c("royalblue","forestgreen"),xlab=NULL,xaxt="n",ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+axis(1,at=seq(1.5,6,2),labels = unique(bxp6$sizeplot),las=2)
+legend("topright",c("DBH 10:35","DBH > 35"),col=c("royalblue","forestgreen"),pch=c(15))
+```
+
+## No.Individuals vs ACD {.tabset}
+
+Relation between the number of individuals and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+db.parcela$No.trees.area<-db.parcela$No.trees/db.parcela$areaplot35
+plot(db.parcela$ACD~db.parcela$No.trees.area,pch=20,col=densCols(db.parcela[,c('No.trees.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+```
+
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.trees.area,pch=20,col=NA,xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("No.trees.area","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+
+```
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.trees.area,pch=20,col=NA,xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("No.trees.area","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+
+```
+
+## Basal area vs ACD {.tabset}
+
+Relation between the basal area and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+plot(db.parcela$ACD~db.parcela$Basal.area.plot,pch=20,col=densCols(db.parcela[,c('Basal.area.plot','ACD')]),xlab=expression("Basal area m" ^2%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+
+```
+
+
+### Plots by location
+
+```{r,echo=FALSE}
+
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$Basal.area.plot,pch=20,col=densCols(db.parcela[,c('Basal.area.plot','ACD')]),xlab=expression("Basal area m" ^2%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("Basal.area.plot","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+```
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$Basal.area.plot,pch=20,col=densCols(db.parcela[,c('Basal.area.plot','ACD')]),xlab=expression("Basal area m" ^2%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("Basal.area.plot","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+```
+
+## Mean height vs ACD {.tabset}
+
+Relation between the mean height and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+plot(db.parcela$ACD~db.parcela$mean.height,pch=20,col=densCols(db.parcela[,c('mean.height','ACD')]),xlab="Mean height (m)",ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+```
+
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$mean.height,pch=20,col=densCols(db.parcela[,c('mean.height','ACD')]),xlab="Mean height (m)",ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("mean.height","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+```
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$mean.height,pch=20,col=densCols(db.parcela[,c('mean.height','ACD')]),xlab="Mean height (m)",ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("mean.height","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+```
+
+## Wood density vs ACD {.tabset}
+
+Relation between the mean wood density and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,include=FALSE}
+## WD weighted by BA
+INV$BA.WD<-INV$Basal.Area*INV$meanWD
+
+WD10<-tapply(INV[INV$DBH<35,"BA.WD"],INV[INV$DBH<35,"parcela"],sum)
+WD10<-data.frame(WD10,parcela=row.names(WD10))
+db.parcela<-merge(db.parcela,WD10,by="parcela",all.x = T)
+db.parcela$WD10<-db.parcela$WD10/db.parcela$BA10
+
+WD35<-tapply(INV[INV$DBH>=35,"BA.WD"],INV[INV$DBH>=35,"parcela"],sum)
+WD35<-data.frame(WD35,parcela=row.names(WD35))
+db.parcela<-merge(db.parcela,WD35,by="parcela",all.x = T)
+db.parcela$WD35<-db.parcela$WD35/db.parcela$BA35
+
+
+
+db.parcela$WD.C1<-rowMeans(cbind(db.parcela$WD10,db.parcela$WD35),na.rm=T)
+db.parcela$WD.C2<-apply(db.parcela[,c("WD10","WD35","BA10.plot","BA35.plot")], 1, function(x) weighted.mean(x[1:2], x[3:4],na.rm=T))
+
+```
+
+
+```{r,echo=FALSE}
+plot(db.parcela$ACD~db.parcela$WD.C2,pch=20,col=densCols(db.parcela[,c('WD.C2','ACD')]),xlab=expression('Mean wood density (g' %.% 'cm'^3*')'),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+```
+
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$WD.C2,pch=20,col=densCols(db.parcela[,c('WD.C2','ACD')]),xlab=expression('Mean wood density (g' %.% 'cm'^3*')'),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("WD.C2","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+
+```
+
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$WD.C2,pch=20,col=densCols(db.parcela[,c('WD.C2','ACD')]),xlab=expression('Mean wood density (g' %.% 'cm'^3*')'),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("WD.C2","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+```
+
+## No. families vs ACD {.tabset}
+
+Relation between the number of families and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+db.parcela$No.families.parcela.area<-db.parcela$No.families/db.parcela$areaplot35
+
+plot(db.parcela$ACD~db.parcela$No.families.parcela.area,pch=20,col=densCols(db.parcela[,c('No.families.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+```
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.families.parcela.area,pch=20,col=densCols(db.parcela[,c('No.families.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("No.families.parcela.area","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+```
+
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.families.parcela.area,pch=20,col=densCols(db.parcela[,c('No.families.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("No.families.parcela.area","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+
+```
+
+## No. genus vs ACD {.tabset}
+
+Relation between the number of genus and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+db.parcela$No.genus.parcela.area<-db.parcela$No.genus/db.parcela$areaplot35
+
+plot(db.parcela$ACD~db.parcela$No.genus.parcela.area,pch=20,col=densCols(db.parcela[,c('No.genus.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+```
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.genus.parcela.area,pch=20,col=densCols(db.parcela[,c('No.genus.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("No.genus.parcela.area","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+
+```
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.genus.parcela.area,pch=20,col=densCols(db.parcela[,c('No.genus.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("No.genus.parcela.area","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+
+```
+
+## No. species vs ACD {.tabset}
+
+Relation between the number of species and the ACD by plot. Also, the same relation but using as color factors the location and size of the plots.
+
+### Total plots
+
+```{r,echo=FALSE}
+db.parcela$No.species.parcela.area<-db.parcela$No.species/db.parcela$areaplot35
+
+plot(db.parcela$ACD~db.parcela$No.species.parcela.area,pch=20,col=densCols(db.parcela[,c('No.species.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+```
+
+
+### Plots by location
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.species.parcela.area,pch=20,col=densCols(db.parcela[,c('No.species.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+for(i in 1:25){
+  points(db.parcela[db.parcela$location==unique(db.parcela$location)[i],c("No.species.parcela.area","ACD")],pch=20,col=rainbow(n=25)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$location)),pch=c(20),col=c(rainbow(n=25)),cex=0.6)
+```
+
+### Plots by size
+
+```{r,echo=FALSE}
+par(mar = c(5, 4, 4, 8),                                  
+    xpd = TRUE)
+
+plot(db.parcela$ACD~db.parcela$No.species.parcela.area,pch=20,col=densCols(db.parcela[,c('No.species.parcela.area','ACD')]),xlab=expression("Number of trees"%.%"ha"^-1),ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+
+for(i in 1:4){
+  points(db.parcela[db.parcela$sizeplot==unique(db.parcela$sizeplot)[i],c("No.species.parcela.area","ACD")],pch=20,col=topo.colors(n=4)[i])
+}
+legend("topright",inset=c(-0.3,0),c(unique(db.parcela$sizeplot)),pch=c(20),col=c(topo.colors(n=4)),cex=0.6)
+```

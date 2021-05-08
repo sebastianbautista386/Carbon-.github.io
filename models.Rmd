@@ -1,0 +1,439 @@
+---
+title: "Models"
+author: "Edgar Cifuentes & Sebastian Bautista"
+date: "28/04/2021"
+output: 
+      html_document:
+          toc: true
+          toc_float: true
+---
+
+```{r, include=FALSE, cache=TRUE}
+# Load data
+# mini
+INV <- read.csv('D:/Lidar/Rmarkdown/all_inventories_v2_wd.csv', stringsAsFactors = F)
+
+```
+
+```{r, include=FALSE, cache=TRUE}
+## transectos que se van a quitar...
+table(INV$sizeplot, useNA = 'ifany')
+# parcelas
+(ntranp <- table(unique(INV[INV$sizeplot%in%c('?x500','20x500'),c('parcela','sizeplot')])$sizeplot))
+sum(ntranp)
+# individuos
+(ntrani <- table(INV[INV$sizeplot%in%c('?x500','20x500'),c('parcela','sizeplot')]$sizeplot))
+sum(ntrani)
+
+INV<-INV[!INV$sizeplot=='?x500',]
+INV<-INV[!INV$sizeplot=='20x500',]
+
+## Se crea db.parcela y se seleccionan las que se van a usar en el analisis
+db.parcela <- unique(INV[c("state","Name","location","plotID","sizeplot","parcela","year","owner")])
+npini <- nrow(db.parcela)
+
+db.parcela <- db.parcela[!(db.parcela$location=='ANA_A01' & db.parcela$year==2018),]
+631-32
+db.parcela <- db.parcela[!(db.parcela$location=='CAU_A01' & db.parcela$year==2014),]
+631-32-88
+db.parcela <- db.parcela[!(db.parcela$location=='CAU_A01' & db.parcela$plotID%in%c('T01_P3','T01_P4','T05_P1')),]
+631-32-88-3
+db.parcela <- db.parcela[!(db.parcela$location=='JAM_A02' & grepl('T03|T01_P1',db.parcela$plotID)),]
+631-32-88-3-5
+db.parcela <- db.parcela[!(db.parcela$location=='PAR_A01' & db.parcela$plotID=='P13'),]
+631-32-88-3-5-1
+db.parcela <- db.parcela[!(db.parcela$location=='SAN_A01' & db.parcela$year==2016),]
+631-32-88-3-5-1-8
+db.parcela <- db.parcela[!(db.parcela$location=='SAN_A02' & db.parcela$plotID=='G01_P04'),]
+631-32-88-3-5-1-8-1
+db.parcela <- db.parcela[!db.parcela$location=='TAC_A01',]
+631-32-88-3-5-1-8-1-27
+db.parcela <- db.parcela[!(db.parcela$location=='TAP_A01' & db.parcela$year%in%c(2015,2016)),]
+631-32-88-3-5-1-8-1-27-11
+db.parcela <- db.parcela[!(db.parcela$location=='TAP_A03' & db.parcela$plotID=='P59'),]
+631-32-88-3-5-1-8-1-27-11-1
+trg1<-npini-nrow(db.parcela) # Se quitaron 177 parcelas
+trg2<-nrow(INV[!INV$parcela%in%db.parcela$parcela,])
+
+
+INV <- INV[INV$parcela%in%db.parcela$parcela,]
+
+
+# Number of Dead
+var <- "parcela"
+lnomda <- lapply(var, 
+                 function(s) {
+                   z <- table(INV$dead, INV[,s])
+                   data.frame(cbind(t(z), variablecomun=row.names(t(z))))
+                 })
+names(lnomda) <- var
+
+# conteo deads
+for (i in 1:length(lnomda)) { 
+  colnames(lnomda[[i]])[1:2]<-paste0(colnames(lnomda[[i]])[1:2],names(lnomda)[i])
+  colnames(lnomda[[i]])<-gsub("TRUE","Dead",colnames(lnomda[[i]]))
+  colnames(lnomda[[i]])<-gsub("FALSE","Alive",colnames(lnomda[[i]]))
+  db.parcela<-merge(db.parcela,lnomda[[i]],by.x=names(lnomda)[i], by.y ="variablecomun")
+}
+
+# hay parcelas sin individuos vivos....
+which(db.parcela$Alive.parcela==0)
+db.parcela <- db.parcela[!db.parcela$Alive.parcela==0,]
+
+table(INV$dead, useNA = 'ifany')
+trg3<-nrow(INV[INV$dead,])
+trg4<-5
+INV <- INV[!INV$dead,] 
+
+# Se quitan lianas
+
+trg5<-table(INV$tree.type, useNA = 'ifany')[1]
+INV <- INV[INV$tree.type!='L',]
+
+##Number of DBH=NA
+trg6<-table(is.na(INV$DBH))[2]
+INV <- INV[!is.na(INV$DBH),]
+
+
+INV$height[INV$height<=0] <- NA
+
+INV$DBH[INV$owner=="MarVin"] <- INV$DBH[INV$owner=="MarVin"]/10
+trg7<-table(INV$DBH>=10)[2]
+trg8<-table(INV$DBH>=10)[1]
+INV <- INV[INV$DBH>=10,]
+INV$height[INV$height<=0] <- NA
+
+
+trg8<-table(INV$tree.type,is.na(INV$height))[1]
+trg9<-table(INV$tree.type,is.na(INV$height))[2]
+trg10<-table(INV$tree.type,is.na(INV$height))[3]
+trg11<-trg10*100/(trg10+trg8)
+trg12<-table(INV$tree.type,is.na(INV$height))[4]
+trg13<-trg12*100/(trg12+trg9)
+
+```
+
+
+
+
+
+## Data used for generating the local height models {.tabset}
+<style>
+body {
+text-align: justify}
+</style>
+
+After removing all the data mentioned above we aimed to generate de local height models, and in this way predict the height of individuals that don't have a field measure. First we decide to remove some trees that have a strange DBH vs height relation, so we consider them as outliers (grey boxes). 
+
+### Trees 
+
+```{r,echo=FALSE}
+INV$height[INV$height<=0] <- NA
+
+
+plot(INV[INV$tree.type=='O',c('DBH','height')], col = densCols(INV[INV$tree.type=='O',c('DBH','height')]), pch = 20, xlim=c(0,250), ylim=c(0,60),xlab="DBH (cm)",ylab="Height (m)")
+rect(0, 34, 33, 60, col = grey(.5,.2), border=NA)
+rect(0, 0, 120, 5, col = grey(.5,.2), border=NA)
+rect(120, 0, 250, 30, col = grey(.5,.2), border=NA)
+rect(40, 5, 120, 11, col = grey(.5,.2), border=NA)
+
+
+
+trg8<-table(INV$tree.type,is.na(INV$height))[1]
+trg9<-table(INV$tree.type,is.na(INV$height))[2]
+trg10<-table(INV$tree.type,is.na(INV$height))[3]
+trg11<-trg10*100/(trg10+trg8)
+trg12<-table(INV$tree.type,is.na(INV$height))[4]
+trg13<-trg12*100/(trg12+trg9)
+
+```
+
+### Palms
+
+```{r,echo=FALSE}
+
+INV$height[INV$height>=34 & INV$DBH<=33] <- NA
+INV$height[INV$height<=5] <- NA
+INV$height[INV$height<=30 & INV$DBH>=120] <- NA
+INV$height[INV$height<=11 & INV$DBH>=40] <- NA
+plot(INV[INV$tree.type=='P',c('DBH','height')],xlim=c(0,259),ylim=c(0,60),xlab="DBH (cm)",ylab="Height (m)", pch = 20,
+       col = densCols(INV[INV$tree.type=='P',c('DBH','height')], 
+                      colramp = colorRampPalette(c('lightpink','red'))))
+```
+
+
+### Trees and palms 
+
+```{r,echo=FALSE}
+plot(INV[INV$tree.type=='O',c('DBH','height')],xlab="DBH (cm)",ylab="Height (m)", col = densCols(INV[INV$tree.type=='O',c('DBH','height')]), pch = 20, xlim=c(0,250), ylim=c(0,60))
+points(INV[INV$tree.type=='P',c('DBH','height')], pch = 20,
+       col = densCols(INV[INV$tree.type=='P',c('DBH','height')], 
+                      colramp = colorRampPalette(c('lightpink','red'))))
+```
+
+## Local height models {.tabset}
+<style>
+body {
+text-align: justify}
+</style>
+
+We generated local height models from ```r trg8``` tree individuals and ```r trg9``` palm individuals.
+
+With the generated models we predict the height for ```r trg10``` tree individuals (```r round(trg11,digits=2)```%) and ```r trg12``` palm individuals (```r round(trg13,digits=2)```%)
+
+We used four different approaches  for generating the models:
+$$
+log 1: log(H) = a+ b*log(D)
+$$
+$$
+log 2: log(H) = a+ b*log(D) + c*log(D)^2
+$$
+$$
+weibull: H = a*(1-exp(-(D/b)^c))
+$$
+$$
+michaelis: H = (A * D)/(B + D)
+$$
+Best model for trees and palms according to the RSE and the AIC value was log 2.
+
+
+### Trees
+
+```{r,include=FALSE}
+load("D:/Lidar/Rmarkdown/20210505_to_Rmd.RData")
+library(sf)
+icond <- !is.na(INV$height) & INV$tree.type=='O'
+i <- INV[icond,] # Only height for training the model
+
+hcond <- is.na(INV$height) & INV$tree.type=='O'
+h <- INV[hcond,] # No height needing prediction
+
+```
+
+
+```{r, echo=FALSE}
+
+plot(i[,c('DBH','height')], col = densCols(i[,c('DBH','height')]),xlab="DBH (cm)",ylab="Height (m)", pch = 20, xlim=c(0,250), ylim=c(0,60))
+lines(i$DBH[order(i$DBH)], dataHlocal1.fit.tree$H[order(i$DBH)], col=sf.colors(4, categorical=T)[1])
+lines(i$DBH[order(i$DBH)], dataHlocal2.fit.tree$H[order(i$DBH)], col=sf.colors(4, categorical=T)[2])
+lines(i$DBH[order(i$DBH)], dataHlocal3.fit.tree$H[order(i$DBH)], col=sf.colors(4, categorical=T)[3])
+lines(i$DBH[order(i$DBH)], dataHlocal4.fit.tree$H[order(i$DBH)], col=sf.colors(4, categorical=T)[4])
+
+legend('bottomright', col = sf.colors(4, categorical=T), lwd=2, bty = 'n',
+       legend=paste0('RSE=',round(c(dataHlocal1.fit.tree$RSE,dataHlocal2.fit.tree$RSE,dataHlocal3.fit.tree$RSE,dataHlocal4.fit.tree$RSE),2),'(',Mtree$method,')'))
+
+
+```
+
+### Palms 
+
+```{r,echo=FALSE}
+plot(j[,c('DBH','height')],,xlab="DBH (cm)",ylab="Height (m)", col = densCols(j[,c('DBH','height')],colramp = colorRampPalette(c('lightpink','red'))), pch = 20)
+
+lines(j$DBH[order(j$DBH)], dataHlocal1.fit.palm$H[order(j$DBH)], col=sf.colors(4, categorical=T)[1])
+lines(j$DBH[order(j$DBH)], dataHlocal2.fit.palm$H[order(j$DBH)], col=sf.colors(4, categorical=T)[2])
+lines(j$DBH[order(j$DBH)], dataHlocal3.fit.palm$H[order(j$DBH)], col=sf.colors(4, categorical=T)[3])
+lines(j$DBH[order(j$DBH)], dataHlocal4.fit.palm$H[order(j$DBH)], col=sf.colors(4, categorical=T)[4])
+
+
+legend('bottomright', col = sf.colors(4, categorical=T), lwd=2, bty = 'n',
+       legend=paste0('RSE=',round(c(dataHlocal1.fit.palm$RSE,dataHlocal2.fit.palm$RSE,dataHlocal3.fit.palm$RSE,dataHlocal4.fit.palm$RSE),2),'(',Mpalm$method,')'))
+
+```
+
+```{r, include=FALSE}
+##Plot areas
+load("D:/Lidar/Rmarkdown/20210505_to_Rmd.RData")
+
+arp35<-data.frame(sizeplot=unique(db.parcela$sizeplot),areaplot35=c(2500,10000,1600))
+db.parcela<-merge(db.parcela,arp35,by="sizeplot",all.x=T)
+db.parcela$areaplot35<-db.parcela$areaplot35/10000
+
+arp10<-data.frame(location=unique(db.parcela$location),areaplot10=c(10000,10000,10000,10000,10000,10000,10000,1600,1000,250,500,1000,1000,250,2500,1000,250,250,500,250,2500,1000,250,1000))
+db.parcela<-merge(db.parcela,arp10,by="location",all.x=T)
+db.parcela$areaplot10<-db.parcela$areaplot10/10000
+
+# Compute AGB(Mg) per plot
+
+AGB10<-tapply(INV[INV$DBH<35,"AGB_wplog2"],INV[INV$DBH<35,"parcela"],sum)
+AGB10<-data.frame(AGB10,parcela=row.names(AGB10))
+db.parcela<-merge(db.parcela,AGB10,by="parcela",all.x = T)
+db.parcela$AGB10[is.na(db.parcela$AGB10)]<-0
+db.parcela$AGB10<-db.parcela$AGB10/db.parcela$areaplot10
+db.parcela$ACD10<-db.parcela$AGB10*0.48
+
+
+AGB35<-tapply(INV[INV$DBH>=35,"AGB_wplog2"],INV[INV$DBH>=35,"parcela"],sum)
+AGB35<-data.frame(AGB35,parcela=row.names(AGB35))
+db.parcela<-merge(db.parcela,AGB35,by="parcela",all.x = T)
+db.parcela$AGB35[is.na(db.parcela$AGB35)]<-0
+db.parcela$AGB35<-db.parcela$AGB35/db.parcela$areaplot35
+db.parcela$ACD35<-db.parcela$AGB35*0.48
+
+db.parcela$AGB.plot<-db.parcela$AGB35+db.parcela$AGB10
+db.parcela$ACD<-db.parcela$AGB.plot*0.48
+
+```
+
+
+## Above ground biomass (AGB)
+<style>
+body {
+text-align: justify}
+</style>
+
+Using the estimated height (H) for the individuals that wasn't measure in the field, their DBH and the wood density (WD) we estimate the above ground biomass (AGB).
+$$
+AGB = 0.0673 * (WD * H * DBH^2)^{0.976}
+$$
+
+```{r,echo=FALSE,warning=FALSE}
+
+##Loess
+col.range <- sf::sf.colors(length(nnAGB),categorical = T)
+par(mfrow=c(1,1))
+plot(0, xlim = range(INV$DBH), ylim=c(0,maxAGB), 
+     main = 'AGB compare\n(loess)', xlab='DBH (cm)', ylab= expression('AGB'*' (Mg C'%.%'ha'^-1*')'),col = NA)
+for(i in 1:length(nnAGB)) lines(loess.smooth(INV$DBH[INV$DBH>=35], INV[INV$DBH>=35,nnAGB[i]], family = 'gaussian'),
+                                col = col.range[i], lwd=2)
+abline(v=35, lty=2)
+legend('top', legend = nnAGB, col = col.range, lwd = 2, bty = 'n')
+
+
+```
+
+
+## Top canopy height (TCH)
+
+With the data obtained using LiDAR we were able to estimate the mean TCH by plots.
+
+```{r,echo=FALSE}
+### Top canopy height (TCH) & cover 10 -----
+db.parcela<-read.csv("D:/Lidar/Rmarkdown/db_parcela_v2_agb.csv")
+dbmodel<- read.csv('D:/Lidar/Rmarkdown/20200420_db_model_v1.csv')
+dbmodel$parcela<-paste(dbmodel$location,dbmodel$plotID,dbmodel$sizeplot,sep=" ")
+dbmodel1<-data.frame(parcela2=dbmodel$parcela,TCHmean=dbmodel$TCHmean,cover10=dbmodel$cover10)
+db.parcela$parcela2<-paste(db.parcela$location,db.parcela$plotID,db.parcela$sizeplot,sep=" ")
+db.parcela<-merge(db.parcela,dbmodel1,by="parcela2",all.x=T)
+hist(db.parcela$TCHmean,breaks = 30,xlab="TCH (m)",main="")
+
+```
+
+## Cover 10
+
+Using LiDAR we calculated the cover 10 by plots.
+
+```{r,echo=FALSE}
+hist(db.parcela$cover10*100,breaks = 30,xlab="Cover 10 %",main="")
+
+```
+
+## TCH vs ACD {.tabset}
+
+Relation between TCH and ACD using the data obtained in this study and data in Asner Mascaro research. For our data we evaluated the relation for the total of individuals (DBH = 10 : ∞) and filtering individuals with DBH >= 35.
+
+```{r,include=FALSE}
+### Asner data -----
+asma <- read.csv('D:/Lidar/Rmarkdown/Asner_Mascaro_SI.csv')
+names(asma)[1]<-"Region"
+library(pals) 
+asma$color <- adjustcolor(cols25(12), alpha.f = .7)[as.integer(as.factor(paste(asma$Region, asma$Climate)))]
+```
+
+### Total
+
+```{r,echo=FALSE}
+# ACD vs TCH
+plot(asma$LiDAR.TCH, asma$EACDfield, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,400),
+     xlab='Top canopy height (m)', ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$ACD, pch=20, col=grey(0,.7))
+
+```
+
+### DBH >= 35
+
+```{r,echo=FALSE}
+plot(asma$LiDAR.TCH, asma$EACDfield, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,400),
+     xlab='Top canopy height (m)', ylab=expression('ACD'['field']*' (Mg C'%.%'ha'^-1*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$ACD35, pch=20, col=grey(0,.7))
+
+```
+
+
+## TCH vs Basal area {.tabset}
+
+Relation between TCH and basal area using the data obtained in this study and data in Asner Mascaro research. For our data we evaluated the relation for the total of individuals (DBH = 10 : ∞) and filtering individuals with DBH >= 35.
+
+### Total
+
+```{r,echo=FALSE}
+# BA vs TCH
+
+plot(asma$LiDAR.TCH, asma$Basal.Area, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,80),
+     xlab='Top canopy height (m)', ylab=expression('Basal area (m'^2 %.% 'ha'^-1*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$Basal.area.plot, pch=20, col=grey(0,.7))
+
+```
+
+### DBH >= 35
+
+```{r,echo=FALSE}
+plot(asma$LiDAR.TCH, asma$Basal.Area, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,80),
+     xlab='Top canopy height (m)', ylab=expression('Basal area (m'^2 %.% 'ha'^-1*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$BA35.plot/10000, pch=20, col=grey(0,.7))
+
+```
+
+
+## TCH vs weighted wood density {.tabset}
+
+Relation between TCH and weighted wood density (2 approaches) using the data obtained in this study and data in Asner Mascaro research. For our data we evaluated the relation for the total of individuals (DBH = 10 : ∞) and filtering individuals with DBH >= 35.
+
+### Total C1
+
+```{r,echo=FALSE}
+plot(asma$LiDAR.TCH, asma$BA.weighted.WD, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,1),
+     xlab='Top canopy height (m)', ylab=expression('Wood density (g' %.% 'cm'^3*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$WD.C1, pch=20, col=grey(0,.7))
+
+```
+
+### Total C2
+
+```{r,echo=FALSE}
+## WD2 vs TCH
+plot(asma$LiDAR.TCH, asma$BA.weighted.WD, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,1),
+     xlab='Top canopy height (m)', ylab=expression('Wood density (g' %.% 'cm'^3*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$WD.C2, pch=20, col=grey(0,.7))
+
+```
+
+### DBH >= 35
+
+```{r,echo=FALSE}
+plot(asma$LiDAR.TCH, asma$BA.weighted.WD, col=asma$color, pch=20,
+     xlim=c(0,55), ylim=c(0,1),
+     xlab='Top canopy height (m)', ylab=expression('Wood density (g' %.% 'cm'^3*')'))
+lvleg <- c(levels(as.factor(paste(asma$Region, asma$Climate))),'', 'This study')
+legend('topright',legend = lvleg, pch = 19, col= c(cols25(12),NA,grey(0)), bty='n')
+points(   db.parcela$TCHmean, db.parcela$WD35, pch=20, col=grey(0,.7))
+
+```

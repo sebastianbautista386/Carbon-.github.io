@@ -1,0 +1,15 @@
+---
+title: "Inventories data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE}
+library(DT)
+db.parcela<-read.csv("D:/Lidar/Rmarkdown/db_parcela_v2_agb.csv")
+
+DT::datatable(db.parcela,class="cell-border stripe",rownames = F,filter="top",extensions = "Buttons",options = list(autoWidth=T,dom="Bfrtip",buttons=c('copy', 'csv', 'excel', 'pdf')))
+```
