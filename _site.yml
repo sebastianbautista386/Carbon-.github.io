@@ -1,0 +1,16 @@
+name: "LiDAR"
+navbar:
+  title: "LiDAR"
+  left:
+    - text: "Carbon project"
+      href: index.html
+    - text: "Descriptive analysis of field data"
+      href: descriptives.html
+    - text: "Models"
+      href: models.html
+    - text: "Inventories data"
+      href: inventories.html
+output:
+  html_document:
+    theme: cosmo
+    highlight: textmate
